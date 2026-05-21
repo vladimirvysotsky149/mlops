@@ -1,0 +1,30 @@
+stages:
+
+  retrain:
+    cmd: python -u retrain.py
+    deps:
+      - retrain.py
+      - artifacts/model_stage1.pth
+      - ai-vs-human-generated-dataset-hw/Train_2
+    params:
+      - retrain.lr
+      - retrain.batch_size
+      - retrain.epochs
+    outs:
+      - artifacts/model_dvc.pth
+
+  evaluate:
+    cmd: python evaluate.py
+    deps:
+      - evaluate.py
+      - artifacts/model_dvc.pth
+      - ai-vs-human-generated-dataset-hw/Test_2
+    params:
+      - retrain.lr
+      - retrain.batch_size
+      - retrain.epochs  
+
+  upload_retrain:
+    cmd: python upload_to_s3.py
+    deps:
+      - artifacts/model_dvc.pth
