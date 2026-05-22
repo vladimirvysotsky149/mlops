@@ -24,9 +24,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_num_threads(4)
 print(f'Using device: {device}')
 
-# =========================================================
-# DOWNLOAD PARAMS
-# =========================================================
+# Экспорт параметров из params.yaml
 
 with open("params.yaml") as f:
     params = yaml.safe_load(f)
@@ -35,9 +33,7 @@ lr = params["retrain"]["lr"]
 batch_size = params["retrain"]["batch_size"]
 epochs = params["retrain"]["epochs"]
 
-# =========================================================
-# TEST DATASET
-# =========================================================
+# Подготовка данных для валидации
 
 class ImageDataset(Dataset):
     def __init__(self, csv_file, root_dir, transform=None):
@@ -75,9 +71,7 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num
 
 print(f'Test dataset size: {len(test_dataset)}')
 
-# =========================================================
-# MODEL
-# =========================================================
+# Создаем модель и подгружаем дообученное состояние из папки с артефактами
 
 model = models.resnet18(pretrained=False)
 num_features = model.fc.in_features
@@ -90,15 +84,9 @@ model = model.to(device)
 #print(f'Model architecture:')
 #print(model)
 
-# CONFIG
-
 criterion = nn.CrossEntropyLoss()
 
-# TENSORBOARD
-
-writer = SummaryWriter("my_logs/retrain")
-
-# VALIDATE FUNCTION
+# Валидация модели
 
 def validate(model, dataloader, criterion, device):
     model.eval()
@@ -129,6 +117,8 @@ def validate(model, dataloader, criterion, device):
 
 print('\nTesting model...')
 
+writer = SummaryWriter("my_logs/retrain")
+
 test_loss, test_acc, test_f1, test_precision, test_recall = validate(
     model,
     test_loader,
@@ -137,6 +127,8 @@ test_loss, test_acc, test_f1, test_precision, test_recall = validate(
 )
 
 print(f'Test Loss: {test_loss:.10f}, Acc: {test_acc:.10f}, F1: {test_f1:.10f}, Precision: {test_precision:.10f}, Recall: {test_recall:.10f}')
+
+# Логгирование метрик в tensorboard
 
 writer.add_scalar('Loss/Test', test_loss, 0)
 writer.add_scalar('Accuracy/Test', test_acc, 0)
