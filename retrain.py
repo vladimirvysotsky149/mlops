@@ -24,9 +24,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_num_threads(4)
 print(f'Using device: {device}')
 
-# =========================================================
-# S3 DOWNLOAD
-# =========================================================
+# Загружаем модель из S3
 
 s3 = boto3.client(
     "s3",
@@ -41,7 +39,8 @@ s3.download_file(
     "artifacts/model_stage1.pth"
 )
 
-# Params
+# Экспорт параметров из params.yaml
+
 with open("params.yaml") as f:
     params = yaml.safe_load(f)
 
@@ -49,9 +48,7 @@ lr = params["retrain"]["lr"]
 batch_size = params["retrain"]["batch_size"]
 epochs = params["retrain"]["epochs"]
 
-# =========================================================
-# DATASET
-# =========================================================
+# Подготовка данных для дообучения
 
 class ImageDataset(Dataset):
     def __init__(self, csv_file, root_dir, transform=None):
@@ -82,11 +79,6 @@ train_transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-
-# =========================================================
-# DATA
-# =========================================================
-
 train_dataset = ImageDataset(
     csv_file="ai-vs-human-generated-dataset-hw/Train_2/train.csv",
     root_dir="ai-vs-human-generated-dataset-hw/Train_2",
@@ -97,9 +89,7 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, nu
 
 print(f'Train dataset size: {len(train_dataset)}')
 
-# =========================================================
-# MODEL
-# =========================================================
+# Создаем  модель и подгружаем состояние из папки с артефактами
 
 model = models.resnet18(pretrained=False)
 num_features = model.fc.in_features
@@ -112,15 +102,11 @@ model = model.to(device)
 #print(f'Model architecture:')
 #print(model)
 
-# =========================================================
-# TRAIN CONFIG
-# =========================================================
-
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(),lr=lr)
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
-# TENSORBOARD
+# Сохраняем параметры обучения
 
 writer = SummaryWriter("my_logs/retrain")
 
@@ -136,7 +122,9 @@ hparams = {
 with open("artifacts/retrain_hparams.json", "w") as f:
     json.dump(hparams, f, indent=4)
 
-# TRAIN FUNCTION
+# Функция обучения и дообучение модели 
+
+import time
 
 def train_epoch(model, dataloader, criterion, optimizer, device):
     model.train()
@@ -165,17 +153,13 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
     
     return epoch_loss, epoch_acc, epoch_f1
 
-# =========================================================
-# TRAIN LOOP
-# =========================================================
-import time
-
 num_epochs = epochs
 train_losses = []
 train_accs = []
 train_f1s = []
 
 # Логгирование метрик для tensorboard
+
 start = time.time()
 
 for epoch in range(num_epochs):
@@ -209,9 +193,7 @@ writer.add_hparams(
     }
 )
 
-# =========================================================
-# SAVE MODEL
-# =========================================================
+# Сохраним состояние после дообучения
 
 torch.save(
     model.state_dict(),
